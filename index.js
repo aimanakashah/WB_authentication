@@ -60,13 +60,21 @@ app.post("/login", async (req, res) => {
 
   try {
     const checkResult = await db.query(
-      "SELECT * FROM users WHERE email = $1 AND password = $2",
-      [email, password]
+      "SELECT * FROM users WHERE email = $1;",
+      [email]
     );
+    //if 'email' is found, the length of the rows will always be 1. More than 1 indicates two same 'email' registered which is wrong since the 'email' is set as UNIQUE in the database
     if (checkResult.rows.length > 0) {
-      res.render("secrets.ejs");
+      const user = checkResult.rows[0];
+      const storedPassword = user.password;
+
+      if (storedPassword === password) {
+        res.render("secrets.ejs");
+      } else {
+        res.send("Wrong password, try again.");
+      }
     } else {
-      res.send("Your password or email is incorrect. Try again.");
+      res.send("No email registered. Try register an account.");
     }
   } catch (err) {
     console.log(err);
