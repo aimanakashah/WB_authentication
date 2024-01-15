@@ -1,9 +1,11 @@
 import express from "express";
 import bodyParser from "body-parser";
 import pg from "pg";
+import bcrypt, { hash } from "bcrypt";
 
 const app = express();
 const port = 3000;
+const saltRounds = 10;
 
 const db = new pg.Client({
   user: "postgres",
@@ -37,17 +39,22 @@ app.post("/register", async (req, res) => {
     const checkResult = await db.query("SELECT * FROM users WHERE email = $1", [
       email,
     ]);
-
     //using the length is because the the data is already extracted from database. if no data extracted meaning the length is 0 thus the email does not exist yet
     if (checkResult.rows.length > 0) {
       res.send("Email already exists, try logging in.");
     } else {
-      const result = await db.query(
-        "INSERT INTO users (email, password) VALUES ($1, $2);",
-        [email, password]
-      );
-      console.log(result);
-      res.render("secrets.ejs");
+      bcrypt.hash(password, saltRounds, async (err, hash) => {
+        if (err) {
+          console.log("Error hashing password", err);
+        } else {
+          const result = await db.query(
+            "INSERT INTO users (email, password) VALUES ($1, $2);",
+            [email, hash]
+          );
+          console.log(result);
+          res.render("secrets.ejs");
+        }
+      });
     }
   } catch (err) {
     console.log(err);
@@ -68,11 +75,15 @@ app.post("/login", async (req, res) => {
       const user = checkResult.rows[0];
       const storedPassword = user.password;
 
-      if (storedPassword === password) {
-        res.render("secrets.ejs");
-      } else {
-        res.send("Wrong password, try again.");
-      }
+      bcrypt.compare(password, storedPassword, (err, result) => {
+        // result == true, already compared when using this bcrypt method, so just put the result.
+        if (result) {
+          res.render("secrets.ejs");
+        } else {
+          res.send("Wrong password, try again.");
+        }
+        // res.render("secrets.ejs");
+      });
     } else {
       res.send("No email registered. Try register an account.");
     }
