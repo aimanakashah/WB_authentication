@@ -5,16 +5,18 @@ import bcrypt, { hash } from "bcrypt";
 import session from "express-session";
 import passport from "passport";
 import { Strategy } from "passport-local";
+import env from "dotenv";
 
 const app = express();
 const port = 3000;
 const saltRounds = 10;
+env.config();
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.use(
   session({
-    secret: "TOPSECRETWORD",
+    secret: process.env.SESSION_KEY,
     resave: false,
     saveUninitialized: true,
     //to set the time of the sesion using miliseconds, 1000 = 1s
@@ -28,11 +30,11 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 const db = new pg.Client({
-  user: "postgres",
-  host: "localhost",
-  database: "Authentication",
-  password: "1234567890",
-  port: 5432,
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_DATABASE,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
 });
 db.connect();
 
@@ -76,7 +78,7 @@ app.post("/register", async (req, res) => {
             [email, hash]
           );
           const user = result.rows[0];
-          //this authenticates the user by passing the information to the serialize and deserialize
+          //this req.login authenticates the user by passing the information to the serialize and deserialize method
           req.login(user, (err) => {
             console.log(err);
             res.redirect("/register");
