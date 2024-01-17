@@ -51,9 +51,37 @@ app.get("/register", (req, res) => {
   res.render("register.ejs");
 });
 
-app.get("/secrets", (req, res) => {
+app.get("/logout", (req, res) => {
+  req.logout((err) => {
+    if (err) {
+      console.error(err);
+    } else {
+      res.redirect("/");
+    }
+  });
+});
+
+app.get("/secrets", async (req, res) => {
+  const secret = "Post your secrets!";
+
   if (req.isAuthenticated()) {
-    res.render("secrets.ejs");
+    const email = req.user.email;
+    // console.log(email, "HOHO");
+    console.log(req.isAuthenticated()); //true
+    const result = await db.query("SELECT * from users WHERE email = $1", [
+      email,
+    ]);
+    if (result.rows[0].secrets === null) {
+      res.render("secrets.ejs", {
+        secret: secret,
+      });
+    } else {
+      const newSecret = result.rows[0].secrets;
+      // console.log(result.rows[0].secrets, "HEHE");
+      res.render("secrets.ejs", {
+        secret: newSecret,
+      });
+    }
   } else {
     res.redirect("/login");
   }
@@ -76,9 +104,37 @@ app.get(
 
 app.get("/logout", (req, res) => {
   req.logout((err) => {
-    if (err) console.log(err);
+    if (err) {
+      return next(err);
+    }
     res.redirect("/");
   });
+});
+
+app.get("/submit", (req, res) => {
+  res.render("submit.ejs");
+});
+
+app.post("/submit", async (req, res) => {
+  const newSecret = req.body.secret;
+
+  if (req.isAuthenticated()) {
+    const email = req.user.email;
+    console.log(email, "submit");
+
+    await db.query("UPDATE users SET secrets = $1 WHERE email = $2", [
+      newSecret,
+      email,
+    ]);
+
+    // console.log(newSecret);
+    const secret = newSecret;
+    res.render("/secrets", {
+      secret: secret,
+    });
+  } else {
+    console.error(error);
+  }
 });
 
 app.post(
@@ -170,7 +226,7 @@ passport.use(
       userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
     },
     async (accessToken, refreshToken, profile, cb) => {
-      console.log(profile);
+      // console.log(profile);
       try {
         const result = await db.query("SELECT * FROM users WHERE email = $1", [
           profile.email,
