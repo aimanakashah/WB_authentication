@@ -62,25 +62,19 @@ app.get("/logout", (req, res) => {
 });
 
 app.get("/secrets", async (req, res) => {
-  const secret = "Post your secrets!";
-
+  //true
   if (req.isAuthenticated()) {
-    const email = req.user.email;
-    // console.log(email, "HOHO");
-    console.log(req.isAuthenticated()); //true
+    const email = req.user.email; //passport authentication from cb
     const result = await db.query("SELECT * from users WHERE email = $1", [
       email,
     ]);
-    if (result.rows[0].secrets === null) {
+    const secret = result.rows[0].secrets;
+    if (secret) {
       res.render("secrets.ejs", {
         secret: secret,
       });
     } else {
-      const newSecret = result.rows[0].secrets;
-      // console.log(result.rows[0].secrets, "HEHE");
-      res.render("secrets.ejs", {
-        secret: newSecret,
-      });
+      res.redirect("/submit");
     }
   } else {
     res.redirect("/login");
@@ -112,28 +106,25 @@ app.get("/logout", (req, res) => {
 });
 
 app.get("/submit", (req, res) => {
-  res.render("submit.ejs");
+  if (req.isAuthenticated()) {
+    res.render("submit.ejs");
+  } else {
+    res.redirect("/login");
+  }
 });
 
 app.post("/submit", async (req, res) => {
   const newSecret = req.body.secret;
 
-  if (req.isAuthenticated()) {
-    const email = req.user.email;
-    console.log(email, "submit");
-
-    await db.query("UPDATE users SET secrets = $1 WHERE email = $2", [
-      newSecret,
-      email,
-    ]);
-
-    // console.log(newSecret);
-    const secret = newSecret;
-    res.render("/secrets", {
-      secret: secret,
-    });
-  } else {
-    console.error(error);
+  try {
+    await db.query(
+      "UPDATE users SET secrets = $1 WHERE email = $2",
+      [newSecret, req.user.email]
+      //using passport cb method to get the user req.user
+    );
+    res.redirect("/secrets");
+  } catch (err) {
+    console.log(err);
   }
 });
 
@@ -170,7 +161,8 @@ app.post("/register", async (req, res) => {
           //this req.login authenticates the user by passing the information to the serialize and deserialize method
           req.login(user, (err) => {
             console.log(err);
-            res.redirect("/register");
+            res.redirect("/submit");
+            // res.redirect("/register");
           });
         }
       });
@@ -208,6 +200,7 @@ passport.use(
           // res.render("secrets.ejs");
         });
       } else {
+        // res.redirect("/register");
         return cb("User not found");
       }
     } catch (err) {
